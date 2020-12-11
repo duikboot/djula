@@ -21,20 +21,28 @@
   (:documentation "Searches for template files on disk according to the given search path."))
 
 (defmethod find-template ((store file-store) name &optional (error-p t))
+  "Algorithm that finds a template in a file-store."
   (with-slots (current-path search-path)
       store
     (or
      (cond
+       ;; If it is a pathname, just check that the file exists
        ((pathnamep name)
-        (fad:file-exists-p name))
+        (uiop:file-exists-p name))
+       ;; If first character is a '/', then treat it as an absolute path first, then relative to template store search paths.
        ((char= (char name 0) #\/)
-        (fad:file-exists-p name))
+        (or
+         (uiop:file-exists-p name)
+         (loop
+           for dir in search-path
+             thereis (uiop:file-exists-p (merge-pathnames (subseq (string name) 1) dir)))))
+       ;; Otherwise, search relative to either current path or search paths
        (t (loop
              with path = (if current-path
                              (cons (directory-namestring current-path) search-path)
                              search-path)
              for dir in path
-             thereis (fad:file-exists-p (merge-pathnames name dir)))))
+             thereis (uiop:file-exists-p (merge-pathnames name dir)))))
      (when error-p
        (error "Template ~A not found" name)))))
 
